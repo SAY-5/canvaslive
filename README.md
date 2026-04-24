@@ -1,5 +1,10 @@
 # CanvasLive
 
+[![ci](https://github.com/SAY-5/canvaslive/actions/workflows/ci.yml/badge.svg)](https://github.com/SAY-5/canvaslive/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![tests](https://img.shields.io/badge/tests-25%20passing-brightgreen)](#)
+[![node](https://img.shields.io/badge/node-22+-339933)](#)
+
 Real-time multiplayer whiteboard with WebSocket-based live cursors and
 operational-transform conflict resolution.
 
@@ -70,6 +75,14 @@ ws ↔ { type: "cursor", x, y, visible }
 Ops are `add | remove | patch | noop`. Every op carries
 `{clientId, clientSeq, lamport, serverSeq?}`. Server stamps `lamport` and
 `serverSeq` on acceptance.
+
+## Companion projects
+
+Part of a three-repo set:
+
+- **[canvaslive](https://github.com/SAY-5/canvaslive)** — you're here. Real-time multiplayer OT.
+- **[pluginforge](https://github.com/SAY-5/pluginforge)** — Web Worker plugin sandbox with capability-based permissions.
+- **[agentlab](https://github.com/SAY-5/agentlab)** — multi-model AI coding agent evaluation harness.
 
 ## License
 
