@@ -33,48 +33,76 @@ function JoinScreen({ onJoin }: { onJoin: (j: JoinInfo) => void }) {
   const [roomId, setRoomId] = useState(defaultRoomId());
   const [name, setName] = useState("anon");
   const [color, setColor] = useState(COLORS[3]!);
+  const enter = () => {
+    location.hash = `/${roomId}`;
+    onJoin({ roomId, name, color });
+  };
   return (
     <div className="join">
-      <div className="join-card">
-        <h1>Join a room</h1>
-        <label htmlFor="join-room">Room</label>
-        <input
-          id="join-room"
-          value={roomId}
-          onChange={(e) => setRoomId(e.target.value)}
-        />
-        <label htmlFor="join-name">Name</label>
-        <input
-          id="join-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <label>Color</label>
-        <div style={{ display: "flex", gap: 6 }}>
-          {COLORS.map((c) => (
-            <button
-              key={c}
-              onClick={() => setColor(c)}
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 14,
-                background: c,
-                border: c === color ? "2px solid white" : "1px solid #333",
-                cursor: "pointer",
-              }}
-              aria-label={`color ${c}`}
-            />
-          ))}
+      <div className="join-inner">
+        <div className="join-hero">
+          <p className="join-eyebrow">Canvas · Live</p>
+          <h1>
+            Draw, together,
+            <br />
+            <em>in real time.</em>
+          </h1>
+          <p>
+            A multiplayer whiteboard with operational-transform conflict
+            resolution. Every stroke converges across every client,
+            every order.
+          </p>
         </div>
-        <button
-          onClick={() => {
-            location.hash = `/${roomId}`;
-            onJoin({ roomId, name, color });
-          }}
-        >
-          Enter
-        </button>
+        <div className="join-card">
+          <div className="join-field">
+            <label htmlFor="join-room">Room</label>
+            <input
+              id="join-room"
+              value={roomId}
+              onChange={(e) => setRoomId(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && enter()}
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+          </div>
+          <div className="join-field">
+            <label htmlFor="join-name">Name</label>
+            <input
+              id="join-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && enter()}
+              maxLength={32}
+            />
+          </div>
+          <div className="join-field">
+            <label>Cursor color</label>
+            <div className="join-colors">
+              {COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  style={{ background: c }}
+                  className={c === color ? "selected" : ""}
+                  aria-label={`color ${c}`}
+                  aria-pressed={c === color}
+                />
+              ))}
+            </div>
+          </div>
+          <button className="join-enter" type="button" onClick={enter}>
+            <span>Enter room</span>
+            <span className="arrow" aria-hidden>→</span>
+          </button>
+        </div>
+        <div className="join-footer">
+          <span>OT engine · 16 tests · 500-run property</span>
+          <a href="https://github.com/SAY-5/canvaslive" target="_blank" rel="noreferrer">
+            github.com/SAY-5/canvaslive
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -308,42 +336,44 @@ function Whiteboard({ join }: { join: JoinInfo }) {
       >
         <canvas ref={canvasRef} className="main" />
         <Cursors cursors={room.cursors} viewport={viewport} />
-        <div
-          style={{
-            position: "absolute",
-            left: 12,
-            top: 12,
-            display: "flex",
-            gap: 6,
-          }}
-        >
-          {COLORS.map((c) => (
-            <button
-              key={c}
-              onClick={() => setColor(c)}
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: 12,
-                background: c,
-                border: c === color ? "2px solid white" : "1px solid #333",
-                cursor: "pointer",
-              }}
-              aria-label={`color ${c}`}
+        <div className="palette" role="group" aria-label="Stroke options">
+          <span className="palette-label">Stroke</span>
+          <div className="palette-swatches">
+            {COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c)}
+                style={{ background: c }}
+                className={c === color ? "selected" : ""}
+                aria-label={`color ${c}`}
+                aria-pressed={c === color}
+              />
+            ))}
+          </div>
+          <div className="palette-size">
+            <input
+              type="range"
+              min={1}
+              max={32}
+              value={strokeWidth}
+              onChange={(e) => setStrokeWidth(Number(e.target.value))}
+              aria-label="stroke width"
             />
-          ))}
-          <input
-            type="range"
-            min={1}
-            max={32}
-            value={strokeWidth}
-            onChange={(e) => setStrokeWidth(Number(e.target.value))}
-            style={{ width: 120, marginLeft: 8 }}
-            aria-label="stroke width"
-          />
+            <span className="palette-size-value">{strokeWidth}</span>
+          </div>
         </div>
         <div className={`status ${room.state}`}>
-          {room.state} {room.userId ? `• ${room.peers.size + 1} in room` : ""}
+          <span>
+            {room.state === "connected"
+              ? `Room ${join.roomId}`
+              : room.state}
+          </span>
+          {room.userId && (
+            <span style={{ color: "var(--ink-4)" }}>
+              · {room.peers.size + 1} {room.peers.size === 0 ? "person" : "people"}
+            </span>
+          )}
         </div>
       </div>
     </div>

@@ -1,12 +1,19 @@
 export type Tool = "select" | "pen" | "rect" | "ellipse" | "line" | "text";
 
-const TOOLS: Array<{ id: Tool; label: string; key: string }> = [
-  { id: "select", label: "↖", key: "V" },
-  { id: "pen", label: "✎", key: "P" },
-  { id: "rect", label: "▭", key: "R" },
-  { id: "ellipse", label: "◯", key: "E" },
-  { id: "line", label: "╱", key: "L" },
-  { id: "text", label: "T", key: "T" },
+interface ToolDef {
+  id: Tool;
+  key: string;
+  icon: string;
+  label: string;
+}
+
+const TOOLS: ToolDef[] = [
+  { id: "select", key: "V", icon: "↖", label: "Select" },
+  { id: "pen", key: "P", icon: "✎", label: "Pen" },
+  { id: "rect", key: "R", icon: "▭", label: "Rectangle" },
+  { id: "ellipse", key: "E", icon: "◯", label: "Ellipse" },
+  { id: "line", key: "L", icon: "╱", label: "Line" },
+  { id: "text", key: "T", icon: "T", label: "Text" },
 ];
 
 export function Toolbar({
@@ -17,15 +24,17 @@ export function Toolbar({
   onChange: (t: Tool) => void;
 }) {
   return (
-    <div className="toolbar">
+    <div className="toolbar" role="toolbar" aria-label="Drawing tools">
       {TOOLS.map((t) => (
         <button
           key={t.id}
           className={t.id === tool ? "active" : ""}
-          title={`${t.id} (${t.key})`}
+          title={`${t.label} (${t.key})`}
+          aria-label={`${t.label}, keyboard shortcut ${t.key}`}
+          aria-pressed={t.id === tool}
           onClick={() => onChange(t.id)}
         >
-          {t.label}
+          {t.icon}
         </button>
       ))}
     </div>
