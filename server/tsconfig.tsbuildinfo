@@ -1,1 +1,1 @@
-{"root":["./src/auth.ts","./src/config.ts","./src/index.ts","./src/ratelimit.ts","./src/room.ts","./src/store.ts","./src/test/integration.test.ts"],"version":"5.9.3"}
+{"root":["./src/auth.ts","./src/config.ts","./src/index.ts","./src/ratelimit.ts","./src/room.ts","./src/store.ts","./src/test/integration.test.ts","./src/test/load.test.ts"],"version":"5.9.3"}
