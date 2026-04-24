@@ -78,11 +78,13 @@ Ops are `add | remove | patch | noop`. Every op carries
 
 ## Companion projects
 
-Part of a three-repo set:
+Part of a five-repo set:
 
 - **[canvaslive](https://github.com/SAY-5/canvaslive)** — you're here. Real-time multiplayer OT.
 - **[pluginforge](https://github.com/SAY-5/pluginforge)** — Web Worker plugin sandbox with capability-based permissions.
 - **[agentlab](https://github.com/SAY-5/agentlab)** — multi-model AI coding agent evaluation harness.
+- **[payflow](https://github.com/SAY-5/payflow)** — Spring Boot payments API with idempotent transactions and Stripe webhooks.
+- **[queryflow](https://github.com/SAY-5/queryflow)** — natural-language SQL engine with pgvector RAG.
 
 ## License
 
