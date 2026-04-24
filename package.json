@@ -1,0 +1,21 @@
+{
+  "name": "canvaslive",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Real-time multiplayer whiteboard with WebSocket live cursors and operational-transform conflict resolution.",
+  "license": "MIT",
+  "workspaces": ["shared", "server", "client"],
+  "scripts": {
+    "build:shared": "npm -w shared run build",
+    "build:server": "npm -w server run build",
+    "build:client": "npm -w client run build",
+    "build": "npm run build:shared && npm run build:server && npm run build:client",
+    "dev": "concurrently -n shared,server,client -c magenta,green,cyan \"npm -w shared run dev\" \"npm -w server run dev\" \"npm -w client run dev\"",
+    "test": "npm -w shared run test && npm -w server run test",
+    "lint": "tsc -b shared server client --noEmit"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/cursors.tsx","./src/components/toolbar.tsx","./src/lib/otclient.test.ts","./src/lib/otclient.ts","./src/lib/renderer.ts","./src/lib/useroom.ts","./vite.config.ts"],"version":"5.9.3"}
