@@ -1,6 +1,6 @@
 import {
-  apply,
   applyAll,
+  applyInPlace,
   type Color,
   type DocState,
   type Drawable,
@@ -119,8 +119,9 @@ export class Room {
     this.serverSeq += 1;
     const stamped: Op = { ...op, lamport: this.lamport, serverSeq: this.serverSeq };
 
-    // Apply to state.
-    this.state = apply(this.state, stamped);
+    // Apply to state in-place: Room is single-writer and state is not
+    // otherwise exposed mid-mutation, so we can skip the per-op clone.
+    applyInPlace(this.state, stamped);
 
     // Persist synchronously BEFORE broadcasting. If the process crashes
     // between broadcast and persist, clients would have applied an op

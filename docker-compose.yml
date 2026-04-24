@@ -1,0 +1,24 @@
+services:
+  canvaslive:
+    build: .
+    image: canvaslive:local
+    container_name: canvaslive
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      CANVASLIVE_JWT_SECRET: ${CANVASLIVE_JWT_SECRET:-change-me-at-least-sixteen-chars}
+      CANVASLIVE_REQUIRE_AUTH: "${CANVASLIVE_REQUIRE_AUTH:-0}"
+      CANVASLIVE_CORS_ORIGINS: "${CANVASLIVE_CORS_ORIGINS:-*}"
+      CANVASLIVE_MAX_OPS_PER_SEC: "${CANVASLIVE_MAX_OPS_PER_SEC:-200}"
+    volumes:
+      - canvaslive-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  canvaslive-data:

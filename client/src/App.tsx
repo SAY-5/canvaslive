@@ -37,10 +37,18 @@ function JoinScreen({ onJoin }: { onJoin: (j: JoinInfo) => void }) {
     <div className="join">
       <div className="join-card">
         <h1>Join a room</h1>
-        <label>Room</label>
-        <input value={roomId} onChange={(e) => setRoomId(e.target.value)} />
-        <label>Name</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} />
+        <label htmlFor="join-room">Room</label>
+        <input
+          id="join-room"
+          value={roomId}
+          onChange={(e) => setRoomId(e.target.value)}
+        />
+        <label htmlFor="join-name">Name</label>
+        <input
+          id="join-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
         <label>Color</label>
         <div style={{ display: "flex", gap: 6 }}>
           {COLORS.map((c) => (

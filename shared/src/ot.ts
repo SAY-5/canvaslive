@@ -20,43 +20,71 @@ import type {
 
 // ---------- apply ----------------------------------------------------------
 
+/**
+ * Return a new state with ``op`` applied. The input state is not mutated.
+ *
+ * Ops that are structural no-ops on state (noop, remove-of-absent,
+ * patch-of-absent) skip the clone entirely so the immutable variant stays
+ * cheap when most ops don't actually mutate.
+ */
 export function apply(state: DocState, op: Op): DocState {
-  const next = new Map(state);
+  switch (op.type) {
+    case "noop":
+      return state;
+    case "remove":
+      if (!state.has(op.id)) return state;
+      break;
+    case "patch":
+      if (!state.has(op.id)) return state;
+      break;
+  }
+  return applyInPlace(new Map(state), op);
+}
+
+/**
+ * Apply ``op`` to ``state`` in-place and return the same reference.
+ *
+ * Much cheaper for single-writer hot paths (server per-room mutation,
+ * client rebase loops where we hold exclusive ownership of the state
+ * map) where a full clone per op would be O(n) in document size.
+ *
+ * **Caller invariant**: no other code may observe ``state`` between calls.
+ */
+export function applyInPlace(state: DocState, op: Op): DocState {
   switch (op.type) {
     case "add": {
-      // add is idempotent on id: a second add for the same id upgrades
-      // updatedAt but leaves the earlier createdAt.
-      const existing = next.get(op.id);
+      const existing = state.get(op.id);
       if (existing) {
-        next.set(op.id, {
+        state.set(op.id, {
           ...existing,
           ...op.shape,
           createdAt: existing.createdAt,
           updatedAt: Math.max(existing.updatedAt, op.lamport),
         });
       } else {
-        next.set(op.id, op.shape);
+        state.set(op.id, op.shape);
       }
-      return next;
+      return state;
     }
-    case "remove": {
-      next.delete(op.id);
-      return next;
-    }
+    case "remove":
+      state.delete(op.id);
+      return state;
     case "patch": {
-      const existing = next.get(op.id);
-      if (!existing) return next; // patch on absent → noop in state
-      next.set(op.id, applyPatch(existing, op.patch, op.lamport));
-      return next;
+      const existing = state.get(op.id);
+      if (!existing) return state;
+      state.set(op.id, applyPatch(existing, op.patch, op.lamport));
+      return state;
     }
     case "noop":
-      return next;
+      return state;
   }
 }
 
 export function applyAll(state: DocState, ops: readonly Op[]): DocState {
-  let s = state;
-  for (const op of ops) s = apply(s, op);
+  // Clone once up front and mutate from there — replay is a bulk op, so
+  // callers never observe intermediate maps.
+  const s = new Map(state);
+  for (const op of ops) applyInPlace(s, op);
   return s;
 }
 
