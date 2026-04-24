@@ -78,6 +78,16 @@ function applyPatch(
   return next as unknown as Drawable;
 }
 
+// Exposed under a distinct name so transform() can merge a patch's fields
+// into an add's shape during concurrent-op resolution.
+function applyPatchShape(
+  shape: Drawable,
+  patch: Record<string, PatchValue>,
+  lamport: number,
+): Drawable {
+  return applyPatch(shape, patch, lamport);
+}
+
 function isAppend(v: PatchValue): v is { $append: unknown[] } {
   return (
     typeof v === "object" &&
@@ -130,14 +140,22 @@ export function transform(a: Op, b: Op): Op {
   if (a.type === "patch" && b.type === "remove") return asNoop(a);
 
   if (a.type === "patch" && b.type === "add") {
-    // b just created, a is patching concurrently → patch a drops (nothing
-    // existed at the base state that a's patch should target).
-    return asNoop(a);
+    // Concurrent add + patch on the same id. In the "apply b then a"
+    // order, a (patch) needs to apply on top of b's freshly-added shape,
+    // so keep a unchanged.
+    return a;
   }
   if (a.type === "add" && b.type === "patch") {
-    // Patch targeted a shape that didn't exist at base; a creates it.
-    // The patch will apply after a with effect, so a is unchanged.
-    return a;
+    // Mirror case: in the "apply b then a" order, b (patch) applied to
+    // empty state and was a noop. For convergence, a's add must therefore
+    // carry b's patched field values into its shape so both orders end
+    // at the same state.
+    const mergedShape = applyPatchShape(
+      a.shape,
+      (b as OpPatch).patch,
+      Math.max(a.lamport, b.lamport),
+    );
+    return { ...a, shape: mergedShape };
   }
 
   if (a.type === "patch" && b.type === "patch") {

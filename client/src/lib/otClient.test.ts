@@ -62,4 +62,35 @@ describe("OTClient", () => {
     expect(s.color).toBe("#f00");
     expect(s.width).toBe(10);
   });
+
+  it("TP1 convergence with TWO pending local ops and a concurrent remote", () => {
+    // This is the case the old code got wrong: the remote op was rebased
+    // against un-rebased pending entries. The rewritten onServerOp walks
+    // the pending list once and advances both the rebased remote and each
+    // rebased local alongside each other.
+    const a = new OTClient("A", () => {});
+    a.serverState.set("x", stroke("x", "Z"));
+    a.local = new Map(a.serverState);
+    // Two pending local patches on disjoint fields.
+    const p1 = a.localOp<OpPatch>({ type: "patch", id: "x", patch: { color: "#f00" } });
+    const p2 = a.localOp<OpPatch>({ type: "patch", id: "x", patch: { width: 99 } });
+    // Concurrent remote patch on yet another field.
+    a.onServerOp({
+      type: "patch",
+      id: "x",
+      patch: { z: 5 },
+      clientId: "B",
+      clientSeq: 1,
+      lamport: Math.max(p1.lamport, p2.lamport) + 1,
+      serverSeq: 1,
+    });
+    const s = a.local.get("x") as Stroke;
+    expect(s.color).toBe("#f00");
+    expect(s.width).toBe(99);
+    expect(s.z).toBe(5);
+    // Pending entries are still there, with their clientSeq preserved so
+    // the server echoes can still drain them correctly.
+    expect(a.pending.length).toBe(2);
+    expect(a.pending.map((p) => p.clientSeq)).toEqual([p1.clientSeq, p2.clientSeq]);
+  });
 });

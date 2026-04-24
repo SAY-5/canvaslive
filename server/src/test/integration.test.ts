@@ -150,6 +150,28 @@ describe("server integration", () => {
     b.close();
   });
 
+  it("rejects oversized stroke $append patches", async () => {
+    const a = await openWs("roomSize");
+    send(a, { type: "hello", roomId: "roomSize", name: "a", color: "#000" });
+    const aW = await recv(a, "welcome");
+    // 3_000 points > MAX_APPEND_POINTS (2_000 in room.ts) but total frame
+    // well under maxMessageBytes (256 KB).
+    const points = Array.from({ length: 3_000 }, () => ({ x: 0, y: 0 }));
+    const op = {
+      type: "patch" as const,
+      id: "any",
+      patch: { points: { $append: points } },
+      clientId: aW.userId,
+      clientSeq: 1,
+      lamport: 1,
+    };
+    const errMsg = recv(a, "error");
+    send(a, { type: "op", op });
+    const e = await errMsg;
+    expect(e.code).toBe("op_too_large");
+    a.close();
+  });
+
   it("rejects ops with a mismatched clientId", async () => {
     const a = await openWs("roomD");
     send(a, { type: "hello", roomId: "roomD", name: "a", color: "#000" });

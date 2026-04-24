@@ -72,15 +72,22 @@ export class OTClient {
       this.onChange();
       return true;
     }
-    // Remote op: transform our pending queue against it.
-    const rebasedRemote = this.pending.reduce((acc, local) => transform(acc, local), op);
+    // Remote op: walk the pending queue once, maintaining both the
+    // progressively-rebased remote and the progressively-rebased pending
+    // entries. For each local `p_i`:
+    //   rebasedLocal_i = transform(p_i, accumulatedRemote)
+    //   accumulatedRemote = transform(accumulatedRemote, p_i)
+    // so subsequent p_{i+1} is rebased against the remote *after* p_i has
+    // been accounted for, which is what TP1 requires with > 1 pending op.
+    let accumulatedRemote: Op = op;
     const rebasedPending: Op[] = [];
     for (const local of this.pending) {
-      const t = transform(local, op);
-      rebasedPending.push(t);
+      const rebasedLocal = transform(local, accumulatedRemote);
+      accumulatedRemote = transform(accumulatedRemote, local);
+      rebasedPending.push(rebasedLocal);
     }
     this.pending = rebasedPending;
-    this.serverState = apply(this.serverState, rebasedRemote);
+    this.serverState = apply(this.serverState, accumulatedRemote);
     this.recomputeLocal();
     this.onChange();
     return false;

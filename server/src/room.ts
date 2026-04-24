@@ -29,9 +29,7 @@ export class Room {
   lamport = 0;
   serverSeq = 0;
   private clients = new Map<string, ClientSession>();
-  private pendingPersist: Op[] = [];
   private opsSinceSnapshot = 0;
-  private persistTimer: NodeJS.Timeout | null = null;
 
   constructor(
     id: RoomId,
@@ -107,6 +105,15 @@ export class Room {
       return null;
     }
 
+    // Validate incoming op size — frame-level maxPayload already caps the
+    // raw bytes, but inside a valid frame a single op can still declare an
+    // oversized points/text/href. Reject early and tell the client.
+    const validation = validateOpSize(op);
+    if (!validation.ok) {
+      session.send({ type: "error", code: "op_too_large", message: validation.reason });
+      return null;
+    }
+
     // Stamp server-side metadata.
     this.lamport = Math.max(this.lamport, op.lamport) + 1;
     this.serverSeq += 1;
@@ -115,13 +122,19 @@ export class Room {
     // Apply to state.
     this.state = apply(this.state, stamped);
 
-    // Queue persistence.
-    this.pendingPersist.push(stamped);
+    // Persist synchronously BEFORE broadcasting. If the process crashes
+    // between broadcast and persist, clients would have applied an op
+    // that's absent from the durable log, causing permanent divergence
+    // on reconnect. WAL-mode SQLite makes the row insert cheap.
+    this.store.writeOp(this.id, stamped);
     this.opsSinceSnapshot += 1;
-    this.schedulePersist();
+    if (this.opsSinceSnapshot >= this.snapshotEvery) {
+      this.store.writeSnapshot(this.id, this.lamport, this.serverSeq, this.state);
+      this.opsSinceSnapshot = 0;
+    }
 
-    // Broadcast to everyone (including the originator, so they get authoritative
-    // lamport/serverSeq).
+    // Broadcast to everyone (including the originator, so they get
+    // authoritative lamport/serverSeq).
     const msg: ServerMsg = { type: "op", op: stamped };
     for (const c of this.clients.values()) c.send(msg);
 
@@ -137,31 +150,65 @@ export class Room {
     }
   }
 
-  private schedulePersist(): void {
-    if (this.persistTimer) return;
-    this.persistTimer = setTimeout(() => {
-      this.persistTimer = null;
-      this.flush();
-    }, 50);
-  }
-
+  /** No-op: kept for API compatibility. Ops are persisted synchronously. */
   flush(): void {
-    if (this.pendingPersist.length === 0) return;
-    for (const op of this.pendingPersist) this.store.writeOp(this.id, op);
-    this.pendingPersist = [];
-    if (this.opsSinceSnapshot >= this.snapshotEvery) {
-      this.store.writeSnapshot(this.id, this.lamport, this.serverSeq, this.state);
-      this.opsSinceSnapshot = 0;
-    }
+    // intentionally empty
   }
 
   shutdown(): void {
-    if (this.persistTimer) {
-      clearTimeout(this.persistTimer);
-      this.persistTimer = null;
-    }
-    this.flush();
-    // Final snapshot to capture latest state.
+    // Final snapshot to capture latest in-memory state.
     this.store.writeSnapshot(this.id, this.lamport, this.serverSeq, this.state);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Op validation caps
+// ---------------------------------------------------------------------------
+
+const MAX_STROKE_POINTS = 20_000;
+const MAX_APPEND_POINTS = 2_000;
+const MAX_TEXT_LEN = 10_000;
+const MAX_HREF_LEN = 500_000; // data: URLs for images up to ~500KB
+const MAX_FONT_LEN = 200;
+const MAX_COLOR_LEN = 16;
+
+function validateOpSize(op: Op): { ok: true } | { ok: false; reason: string } {
+  if (op.type === "add") {
+    const s = op.shape as unknown as Record<string, unknown>;
+    if (s.kind === "stroke") {
+      const pts = (s.points as unknown[]) ?? [];
+      if (pts.length > MAX_STROKE_POINTS) {
+        return { ok: false, reason: `stroke points exceed ${MAX_STROKE_POINTS}` };
+      }
+    }
+    if (s.kind === "text" && typeof s.text === "string" && s.text.length > MAX_TEXT_LEN) {
+      return { ok: false, reason: `text exceeds ${MAX_TEXT_LEN} chars` };
+    }
+    if (typeof s.font === "string" && s.font.length > MAX_FONT_LEN) {
+      return { ok: false, reason: "font name too long" };
+    }
+    if (s.kind === "image" && typeof s.href === "string" && s.href.length > MAX_HREF_LEN) {
+      return { ok: false, reason: `image href exceeds ${MAX_HREF_LEN} chars` };
+    }
+    for (const key of ["color", "stroke", "fill"] as const) {
+      const v = s[key];
+      if (typeof v === "string" && v.length > MAX_COLOR_LEN) {
+        return { ok: false, reason: `${key} too long` };
+      }
+    }
+  }
+  if (op.type === "patch") {
+    const patch = op.patch as Record<string, unknown>;
+    const pts = patch.points as { $append?: unknown[] } | undefined;
+    if (pts && Array.isArray(pts.$append) && pts.$append.length > MAX_APPEND_POINTS) {
+      return { ok: false, reason: `patch $append exceeds ${MAX_APPEND_POINTS}` };
+    }
+    if (typeof patch.text === "string" && patch.text.length > MAX_TEXT_LEN) {
+      return { ok: false, reason: `text exceeds ${MAX_TEXT_LEN} chars` };
+    }
+    if (typeof patch.href === "string" && patch.href.length > MAX_HREF_LEN) {
+      return { ok: false, reason: `href exceeds ${MAX_HREF_LEN} chars` };
+    }
+  }
+  return { ok: true };
 }
